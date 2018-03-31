@@ -1,0 +1,6 @@
+[package]
+name = "stitch-rs"
+version = "0.1.0"
+authors = ["Stephen Cirner <steve@blackfynn.com>"]
+
+[dependencies]
