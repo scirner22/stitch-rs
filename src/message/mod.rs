@@ -1,6 +1,6 @@
 use std::vec::Vec;
 
-pub mod error;
+use serde::ser::Serialize;
 
 pub trait Message {
     fn get_table_name(&self) -> String;
@@ -9,23 +9,25 @@ pub trait Message {
 }
 
 #[derive(Debug)]
-pub struct UpsertRequest<T: Message> {
+pub struct UpsertRequest<T>
+    where T: Message + Serialize
+{
     client_id: u32,
     sequence: u64,
     data: T,
 }
 
-impl<T: Message> UpsertRequest<T> {
-    pub fn new(data: T) -> Self {
-        UpsertRequest {
-            client_id: 1,
-            sequence: 1,
-            data,
-        }
+impl<T> UpsertRequest<T>
+    where T: Message + Serialize
+{
+    pub fn new(client_id: u32, sequence: u64, data: T) -> Self {
+        UpsertRequest { client_id, sequence, data }
     }
 }
 
-impl<T: Message> UpsertRequest<T> {
+impl<T> UpsertRequest<T>
+    where T: Message + Serialize
+{
     fn get_action(&self) -> String {
         String::from("upsert")
     }
@@ -41,7 +43,9 @@ impl<T: Message> UpsertRequest<T> {
 
 
 #[derive(Debug, Serialize)]
-struct RawUpsertRequest<T: Message> {
+pub struct RawUpsertRequest<T>
+    where T: Message + Serialize
+{
     client_id: u32,
     sequence: u64,
     table_name: String,
@@ -50,7 +54,9 @@ struct RawUpsertRequest<T: Message> {
     data: T,
 }
 
-impl<T: Message> From<UpsertRequest<T>> for RawUpsertRequest<T> {
+impl<T> From<UpsertRequest<T>> for RawUpsertRequest<T>
+    where T: Message + Serialize
+{
     fn from(rec: UpsertRequest<T>) -> Self {
         RawUpsertRequest {
             client_id: rec.client_id,
