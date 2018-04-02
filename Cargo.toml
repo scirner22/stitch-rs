@@ -1,5 +1,5 @@
 [package]
-name = "stitch-rs"
+name = "stitch"
 version = "0.1.0"
 authors = ["Stephen Cirner <steve@blackfynn.com>"]
 

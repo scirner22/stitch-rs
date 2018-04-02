@@ -90,6 +90,8 @@ impl Inner {
         self.upsert_helper(url, batch)
     }
 
+    // TODO add switch_view record
+    // TODO fix error handling on non 200s
 }
 
 pub struct StitchClient {
@@ -163,9 +165,9 @@ mod tests {
     use super::*;
     use std::vec::Vec;
     use std::str;
-    use tokio_core::reactor::Core;
-    use futures::Sink;
+
     use futures::sync::mpsc::{ channel, Sender };
+    use tokio_core::reactor::Core;
 
     const STITCH_AUTH_FIXTURE: &'static str = env!("STITCH_AUTH_FIXTURE");
     const STITCH_CLIENT_ID: &'static str = env!("STITCH_CLIENT_ID");
@@ -219,7 +221,7 @@ mod tests {
         tx.try_send(client.upsert_record(Testing { id: 2 })).unwrap();
         tx.try_send(client.upsert_record(Testing { id: 3 })).unwrap();
         rx.close();
-        let res = core.run(client.buffer_batches::<Testing>(rx, 2));
+        let res = core.run(client.buffer_batches(rx, 2));
 
         assert!(res.is_ok());
     }
