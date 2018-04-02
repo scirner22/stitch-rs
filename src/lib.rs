@@ -1,6 +1,8 @@
 extern crate futures;
 extern crate hyper;
 extern crate hyper_tls;
+#[macro_use]
+extern crate log;
 extern crate serde;
 #[macro_use]
 extern crate serde_derive;
@@ -9,11 +11,13 @@ extern crate tokio_core;
 
 mod message;
 mod stitch;
+mod util;
 
 use std::rc::Rc;
+use std::fmt::Debug;
 
 use futures::{ Future, Stream };
-//use futures::sync::mpsc::Receiver;
+use futures::sync::mpsc::Receiver;
 use hyper::{ Chunk, Method, Request, Response, Uri };
 use hyper::header::{ Authorization, Bearer, ContentLength, ContentType };
 use hyper::client::{ Client, HttpConnector };
@@ -21,19 +25,75 @@ use hyper_tls::HttpsConnector;
 use serde::ser::Serialize;
 use tokio_core::reactor;
 
+use util::futures::*;
+
 pub use message::{ Message, RawUpsertRequest, UpsertRequest };
+pub use stitch::error::Error;
 
 static BASE_URL: &'static str = "https://api.stitchdata.com/v2/import";
-
-pub struct StitchClient {
-    inner: Rc<Inner>,
-}
 
 struct Inner {
     bearer: Authorization<Bearer>,
     client_id: u32,
     client: Client <HttpsConnector<HttpConnector>>,
-    //receiver: Receiver<>,
+}
+
+impl Inner {
+    pub fn get_status(&self) -> stitch::Future<Response> {
+        let url = format!("{}/status", BASE_URL);
+        let url = url.parse().unwrap();
+
+        let f = self.client.get(url)
+            .map_err(Into::into);
+
+        into_future_trait(f)
+    }
+
+    fn upsert_helper<T>(&self, url: Uri, batch: Vec<UpsertRequest<T>>) -> stitch::Future<Chunk>
+        where T: Message + Serialize
+    {
+        let batch = batch.into_iter()
+            .map(Into::<RawUpsertRequest<T>>::into)
+            .collect::<Vec<_>>();
+        let json = serde_json::to_string(&batch).unwrap();
+        let mut req = Request::new(Method::Post, url);
+
+        req.headers_mut().set(self.bearer.clone());
+        req.headers_mut().set(ContentType::json());
+        req.headers_mut().set(ContentLength(json.len() as u64));
+        req.set_body(json);
+
+        let f = self.client.request(req)
+            .and_then(|res| {
+                res.body().concat2()
+            })
+            .map_err(Into::into);
+
+        into_future_trait(f)
+    }
+
+    pub fn validate_batch<T>(&self, batch: Vec<UpsertRequest<T>>) -> stitch::Future<Chunk>
+        where T: Message + Serialize
+    {
+        let url = format!("{}/validate", BASE_URL);
+        let url = url.parse().unwrap();
+
+        self.upsert_helper(url, batch)
+    }
+
+    pub fn upsert_batch<T>(&self, batch: Vec<UpsertRequest<T>>) -> stitch::Future<Chunk>
+        where T: Message + Serialize
+    {
+        let url = format!("{}/push", BASE_URL);
+        let url = url.parse().unwrap();
+
+        self.upsert_helper(url, batch)
+    }
+
+}
+
+pub struct StitchClient {
+    inner: Rc<Inner>,
 }
 
 impl StitchClient {
@@ -63,58 +123,38 @@ impl StitchClient {
     pub fn upsert_record<T>(&self, data: T) -> UpsertRequest<T>
         where T: Message + Serialize
     {
-        UpsertRequest::new(self.inner.client_id, 1, data)
+        UpsertRequest::new(self.client_id(), 1, data)
     }
 
     pub fn get_status(&self) -> stitch::Future<Response> {
-        let url = format!("{}/status", BASE_URL);
-        let url = url.parse().unwrap();
-
-        Box::new(
-            self.inner.client.get(url)
-                .map_err(Into::into)
-        )
+        self.inner.get_status()
     }
 
-    fn upsert_batch<T>(&self, url: Uri, batch: Vec<UpsertRequest<T>>) -> stitch::Future<Chunk>
+    pub fn validate_batch<T>(&self, record: Vec<UpsertRequest<T>>) -> stitch::Future<Chunk>
         where T: Message + Serialize
     {
-        let batch = batch.into_iter()
-            .map(Into::<RawUpsertRequest<T>>::into)
-            .collect::<Vec<_>>();
-        let json = serde_json::to_string(&batch).unwrap();
-        let mut req = Request::new(Method::Post, url);
-
-        req.headers_mut().set(self.inner.bearer.clone());
-        req.headers_mut().set(ContentType::json());
-        req.headers_mut().set(ContentLength(json.len() as u64));
-        req.set_body(json);
-
-        Box::new(
-            self.inner.client.request(req)
-                .and_then(|res| {
-                    res.body().concat2()
-                })
-                .map_err(Into::into)
-        )
+        self.inner.validate_batch(record)
     }
 
-    pub fn upsert_message<T>(&self, record: UpsertRequest<T>) -> stitch::Future<Chunk>
+    pub fn upsert_batch<T>(&self, record: Vec<UpsertRequest<T>>) -> stitch::Future<Chunk>
         where T: Message + Serialize
     {
-        let url = format!("{}/push", BASE_URL);
-        let url = url.parse().unwrap();
-
-        self.upsert_batch(url, vec![record])
+        self.inner.upsert_batch(record)
     }
 
-    pub fn validate_message<T>(&self, record: UpsertRequest<T>) -> stitch::Future<Chunk>
-        where T: Message + Serialize
+    pub fn buffer_batches<T>(&self, stream: Receiver<UpsertRequest<T>>, batch_size: usize) -> stitch::Future<()>
+        where T: Message + Serialize + Debug + 'static
     {
-        let url = format!("{}/validate", BASE_URL);
-        let url = url.parse().unwrap();
+        let inner = Rc::clone(&self.inner);
+        let f = stream.chunks(batch_size)
+            .map_err(|_| Error::Buffer(""))
+            .for_each(move |chunk| {
+                info!("Persisting batch of {} records", chunk.len());
+                inner.upsert_batch(chunk)
+                    .and_then(|_| Ok(()))
+            });
 
-        self.upsert_batch(url, vec![record])
+        into_future_trait(f)
     }
 }
 
@@ -124,21 +164,29 @@ mod tests {
     use std::vec::Vec;
     use std::str;
     use tokio_core::reactor::Core;
+    use futures::Sink;
+    use futures::sync::mpsc::{ channel, Sender };
 
     const STITCH_AUTH_FIXTURE: &'static str = env!("STITCH_AUTH_FIXTURE");
     const STITCH_CLIENT_ID: &'static str = env!("STITCH_CLIENT_ID");
 
-    #[test]
-    fn get_status() {
-        let mut core = Core::new().unwrap();
+    fn get_client() -> (Core, StitchClient) {
+        let core = Core::new().unwrap();
         let client_id = STITCH_CLIENT_ID.parse().unwrap();
         let client = StitchClient::new(&core.handle(), client_id, STITCH_AUTH_FIXTURE).unwrap();
 
+        (core, client)
+    }
+
+    #[test]
+    fn get_status() {
+        let (mut core, client) = get_client();
         let res = core.run(client.get_status()).unwrap();
+
         assert_eq!(res.status(), ::hyper::Ok);
     }
 
-    #[derive(Serialize)]
+    #[derive(Debug, Serialize)]
     struct Testing {
         id: u32,
     }
@@ -155,13 +203,24 @@ mod tests {
 
     #[test]
     fn validate_message_simple() {
-        let mut core = Core::new().unwrap();
-        let client_id = STITCH_CLIENT_ID.parse().unwrap();
-        let client = StitchClient::new(&core.handle(), client_id, STITCH_AUTH_FIXTURE).unwrap();
+        let (mut core, client) = get_client();
         let record = client.upsert_record(Testing { id: 1 });
-
-        let res = core.run(client.validate_message::<Testing>(record)).unwrap();
         let right = r#"{"status":"OK","message":"Batch is valid!"}"#;
+        let res = core.run(client.validate_batch::<Testing>(vec![record])).unwrap();
+
         assert_eq!(str::from_utf8(&res).unwrap(), right);
+    }
+
+    #[test]
+    fn buffer_batches() {
+        let (mut core, client) = get_client();
+        let (mut tx, mut rx): (Sender<UpsertRequest<Testing>>, Receiver<UpsertRequest<Testing>>) = channel(4);
+        tx.try_send(client.upsert_record(Testing { id: 1 })).unwrap();
+        tx.try_send(client.upsert_record(Testing { id: 2 })).unwrap();
+        tx.try_send(client.upsert_record(Testing { id: 3 })).unwrap();
+        rx.close();
+        let res = core.run(client.buffer_batches::<Testing>(rx, 2));
+
+        assert!(res.is_ok());
     }
 }

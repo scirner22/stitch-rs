@@ -21,6 +21,7 @@ pub enum Error {
     //// 504
     //GatewayTimeout,
     // Non status related hyper errors
+    Buffer(&'static str),
     Hyper(::hyper::Error),
     HyperTls(::hyper_tls::Error),
 }
@@ -41,6 +42,7 @@ impl error::Error for Error {
     fn description(&self) -> &str {
         use self::Error::*;
         match *self {
+            Buffer(ref e) => e,
             Hyper(ref e) => e.description(),
             HyperTls(ref e) => e.description(),
         }
@@ -51,6 +53,7 @@ impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Error::*;
         match *self {
+            Buffer(ref err) => write!(f, "{}", err),
             Hyper(ref err) => write!(f, "{}", err),
             HyperTls(ref err) => write!(f, "{}", err),
         }
