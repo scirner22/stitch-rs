@@ -10,7 +10,8 @@ pub trait Message {
 
 #[derive(Debug)]
 pub struct UpsertRequest<T>
-    where T: Message + Serialize
+where
+    T: Message + Serialize,
 {
     client_id: u32,
     sequence: u64,
@@ -18,15 +19,21 @@ pub struct UpsertRequest<T>
 }
 
 impl<T> UpsertRequest<T>
-    where T: Message + Serialize
+where
+    T: Message + Serialize,
 {
     pub fn new(client_id: u32, sequence: u64, data: T) -> Self {
-        UpsertRequest { client_id, sequence, data }
+        UpsertRequest {
+            client_id,
+            sequence,
+            data,
+        }
     }
 }
 
 impl<T> UpsertRequest<T>
-    where T: Message + Serialize
+where
+    T: Message + Serialize,
 {
     fn get_action(&self) -> String {
         String::from("upsert")
@@ -41,10 +48,10 @@ impl<T> UpsertRequest<T>
     }
 }
 
-
 #[derive(Debug, Serialize)]
 pub struct RawUpsertRequest<T>
-    where T: Message + Serialize
+where
+    T: Message + Serialize,
 {
     client_id: u32,
     sequence: u64,
@@ -55,7 +62,8 @@ pub struct RawUpsertRequest<T>
 }
 
 impl<T> From<UpsertRequest<T>> for RawUpsertRequest<T>
-    where T: Message + Serialize
+where
+    T: Message + Serialize,
 {
     fn from(rec: UpsertRequest<T>) -> Self {
         RawUpsertRequest {

@@ -9,8 +9,8 @@ extern crate tokio_core;
 use std::vec::Vec;
 use std::thread;
 
-use futures::sync::mpsc::{ channel, Receiver, Sender };
-use stitch::{ Message, StitchClient, UpsertRequest };
+use futures::sync::mpsc::{channel, Receiver, Sender};
+use stitch::{Message, StitchClient, UpsertRequest};
 use tokio_core::reactor::Core;
 
 const STITCH_AUTH_FIXTURE: &'static str = env!("STITCH_AUTH_FIXTURE");
@@ -34,10 +34,7 @@ impl Message for TestRecord {
     }
 
     fn get_keys(&self) -> Vec<String> {
-        vec![
-            String::from("id"),
-            String::from("name"),
-        ]
+        vec![String::from("id"), String::from("name")]
     }
 }
 
@@ -52,45 +49,65 @@ pub fn test_buffered_stream() {
     let r1 = TestRecord {
         id: 1,
         name: String::from("name_1"),
-        inner: Inner { description: String::from("description_1") }
+        inner: Inner {
+            description: String::from("description_1"),
+        },
     };
     let r2 = TestRecord {
         id: 2,
         name: String::from("name_2"),
-        inner: Inner { description: String::from("description_2") }
+        inner: Inner {
+            description: String::from("description_2"),
+        },
     };
     let r3 = TestRecord {
         id: 3,
         name: String::from("name_3"),
-        inner: Inner { description: String::from("description_3") }
+        inner: Inner {
+            description: String::from("description_3"),
+        },
     };
     let r4 = TestRecord {
         id: 4,
         name: String::from("name_4"),
-        inner: Inner { description: String::from("description_4") }
+        inner: Inner {
+            description: String::from("description_4"),
+        },
     };
     let r5 = TestRecord {
         id: 5,
         name: String::from("name_5"),
-        inner: Inner { description: String::from("description_5") }
+        inner: Inner {
+            description: String::from("description_5"),
+        },
     };
     let r6 = TestRecord {
         id: 6,
         name: String::from("name_6"),
-        inner: Inner { description: String::from("description_6") }
+        inner: Inner {
+            description: String::from("description_6"),
+        },
     };
     let r7 = TestRecord {
         id: 7,
         name: String::from("name_7"),
-        inner: Inner { description: String::from("description_7") }
+        inner: Inner {
+            description: String::from("description_7"),
+        },
     };
 
     // test validate
-    let f = client.validate_batch(vec![client.upsert_record(r1.clone()), client.upsert_record(r2.clone())]);
+    let f = client.validate_batch(vec![
+        client.upsert_record(r1.clone()),
+        client.upsert_record(r2.clone()),
+    ]);
     assert!(core.run(f).is_ok());
 
     // create channel
-    let (mut tx, mut rx): (Sender<UpsertRequest<TestRecord>>, Receiver<UpsertRequest<TestRecord>>) = channel(10);
+    let (mut tx, mut rx): (
+        Sender<UpsertRequest<TestRecord>>,
+        Receiver<UpsertRequest<TestRecord>>,
+    ) = channel(10);
 
     // seed channel
     assert!(tx.try_send(client.upsert_record(r1)).is_ok());
