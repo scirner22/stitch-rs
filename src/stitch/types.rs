@@ -2,7 +2,7 @@ use std::result;
 
 use futures;
 
-use stitch::error;
+use stitch::error::Error;
 
-pub type Result<T> = result::Result<T, error::Error>;
-pub type Future<T> = Box<futures::Future<Item=T, Error=error::Error>>;
+pub type Result<T> = result::Result<T, Error>;
+pub type Future<T> = Box<futures::Future<Item=T, Error=Error>>;

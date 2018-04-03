@@ -26,6 +26,7 @@ use serde::ser::Serialize;
 use tokio_core::reactor;
 
 use util::futures::*;
+use util::*;
 
 pub use message::{ Message, RawUpsertRequest, UpsertRequest };
 pub use stitch::error::Error;
@@ -44,7 +45,10 @@ impl Inner {
         let url = url.parse().unwrap();
 
         let f = self.client.get(url)
-            .map_err(Into::into);
+            .map_err(Into::into)
+            .and_then(|res| {
+                into_result(res)
+            });
 
         into_future_trait(f)
     }
@@ -64,10 +68,14 @@ impl Inner {
         req.set_body(json);
 
         let f = self.client.request(req)
+            .map_err(Into::into)
+            .and_then(|res| {
+                into_result(res)
+            })
             .and_then(|res| {
                 res.body().concat2()
-            })
-            .map_err(Into::into);
+                    .map_err(Into::into)
+            });
 
         into_future_trait(f)
     }
@@ -91,9 +99,10 @@ impl Inner {
     }
 
     // TODO add switch_view record
-    // TODO fix error handling on non 200s
+    // TODO do not cancel stream on errs.. just log
 }
 
+#[derive(Clone)]
 pub struct StitchClient {
     inner: Rc<Inner>,
 }
@@ -153,7 +162,7 @@ impl StitchClient {
             .for_each(move |chunk| {
                 info!("Persisting batch of {} records", chunk.len());
                 inner.upsert_batch(chunk)
-                    .and_then(|_| Ok(()))
+                    .map(|_| ())
             });
 
         into_future_trait(f)
@@ -183,9 +192,9 @@ mod tests {
     #[test]
     fn get_status() {
         let (mut core, client) = get_client();
-        let res = core.run(client.get_status()).unwrap();
+        let res = core.run(client.get_status());
 
-        assert_eq!(res.status(), ::hyper::Ok);
+        assert_eq!(res.is_ok(), true);
     }
 
     #[derive(Debug, Serialize)]

@@ -7,6 +7,7 @@ extern crate stitch;
 extern crate tokio_core;
 
 use std::vec::Vec;
+use std::thread;
 
 use futures::sync::mpsc::{ channel, Receiver, Sender };
 use stitch::{ Message, StitchClient, UpsertRequest };
@@ -101,6 +102,12 @@ pub fn test_buffered_stream() {
     assert!(tx.try_send(client.upsert_record(r7)).is_ok());
     rx.close();
 
-    // test success
-    assert!(core.run(client.buffer_batches(rx, 3)).is_ok());
+    // test stream
+    let t = thread::spawn(move || {
+        let mut t_core = Core::new().unwrap();
+        let t_client = StitchClient::new(&t_core.handle(), client_id, STITCH_AUTH_FIXTURE).unwrap();
+        assert!(t_core.run(t_client.buffer_batches(rx, 3)).is_ok());
+    });
+
+    assert!(t.join().is_ok());
 }
