@@ -1,3 +1,5 @@
+//! Types
+
 use std::result;
 
 use futures;

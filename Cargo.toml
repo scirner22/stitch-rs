@@ -6,6 +6,7 @@ description = "A rust interface for pushing data to https://www.stitchdata.com."
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+chrono = "0.4"
 futures = "0.1"
 hyper = "0.11"
 hyper-tls = "0.1"

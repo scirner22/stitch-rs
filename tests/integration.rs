@@ -9,8 +9,8 @@ extern crate tokio_core;
 use std::vec::Vec;
 use std::thread;
 
-use futures::sync::mpsc::{channel, Receiver, Sender};
-use stitch::{Message, StitchClient, UpsertRequest};
+use futures::sync::mpsc::channel;
+use stitch::{Message, StitchClient};
 use tokio_core::reactor::Core;
 
 const STITCH_AUTH_FIXTURE: &'static str = env!("STITCH_AUTH_FIXTURE");
@@ -97,26 +97,20 @@ pub fn test_buffered_stream() {
     };
 
     // test validate
-    let f = client.validate_batch(vec![
-        client.upsert_record(r1.clone()),
-        client.upsert_record(r2.clone()),
-    ]);
+    let f = client.validate_batch(vec![r1.clone(), r2.clone()]);
     assert!(core.run(f).is_ok());
 
     // create channel
-    let (mut tx, mut rx): (
-        Sender<UpsertRequest<TestRecord>>,
-        Receiver<UpsertRequest<TestRecord>>,
-    ) = channel(10);
+    let (mut tx, mut rx) = channel(10);
 
     // seed channel
-    assert!(tx.try_send(client.upsert_record(r1)).is_ok());
-    assert!(tx.try_send(client.upsert_record(r2)).is_ok());
-    assert!(tx.try_send(client.upsert_record(r3)).is_ok());
-    assert!(tx.try_send(client.upsert_record(r4)).is_ok());
-    assert!(tx.try_send(client.upsert_record(r5)).is_ok());
-    assert!(tx.try_send(client.upsert_record(r6)).is_ok());
-    assert!(tx.try_send(client.upsert_record(r7)).is_ok());
+    assert!(tx.try_send(r1).is_ok());
+    assert!(tx.try_send(r2).is_ok());
+    assert!(tx.try_send(r3).is_ok());
+    assert!(tx.try_send(r4).is_ok());
+    assert!(tx.try_send(r5).is_ok());
+    assert!(tx.try_send(r6).is_ok());
+    assert!(tx.try_send(r7).is_ok());
     rx.close();
 
     // test stream

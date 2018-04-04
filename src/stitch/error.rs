@@ -1,5 +1,8 @@
+//! Errors
+
 use std::{error, fmt};
 
+/// Composition of all errors.
 #[derive(Debug)]
 pub enum Error {
     HyperStatus(::hyper::StatusCode),
