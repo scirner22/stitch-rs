@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["Stephen Cirner <steve@blackfynn.com>"]
 description = "A rust interface for pushing data to https://www.stitchdata.com."
 license = "MIT OR Apache-2.0"
+maintenance = { status = "passively-maintained" }
 
 [dependencies]
 chrono = "0.4"
