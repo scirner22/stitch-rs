@@ -90,9 +90,6 @@ impl Inner {
 
         self.upsert_helper(url, batch)
     }
-
-    // TODO add switch_view record
-    // TODO do not cancel stream on errs.. just log
 }
 
 /// Holds an inner representation of a stitch client.
@@ -164,6 +161,7 @@ impl StitchClient {
     /// represented by a `futures::sync::mpsc::Receiver`.
     /// The stream is chunked and each batch is sent to stitch.
     /// Failures are logged and dropped.
+    // TODO add example in doc above
     pub fn buffer_batches<T>(&self, stream: Receiver<T>, batch_size: usize) -> Future<()>
     where
         T: Message + Serialize + Debug + 'static,
@@ -186,6 +184,8 @@ impl StitchClient {
 
         util::into_future_trait(f)
     }
+
+    // TODO implement way to buffer messages on single thread
 }
 
 #[cfg(test)]
