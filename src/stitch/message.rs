@@ -8,10 +8,13 @@ use serde::ser::Serialize;
 ///
 /// # Example
 ///
-/// ```ignore
-/// # use
+/// ```
+/// # use stitch::Message;
 /// struct User {
 ///     id: u64,
+///     email: String,
+///     first_name: String,
+///     last_name: String,
 /// }
 ///
 /// impl Message for User {
@@ -25,8 +28,10 @@ use serde::ser::Serialize;
 /// }
 /// ```
 pub trait Message {
+    /// Table name of this record. Determines destination schema.
     fn get_table_name(&self) -> String;
 
+    /// Primary keys of this record.
     fn get_keys(&self) -> Vec<String>;
 }
 
