@@ -203,7 +203,7 @@ impl StitchClient {
     ///     core.run(client.buffer_channel(20, rx)).unwrap();
     /// }
     /// ```
-    pub fn buffer_channel<T>(&self, batch_size: usize, stream: Receiver<T>) -> Future<()>
+    pub fn buffer_channel<T>(&self, batch_size: usize, stream: &'static mut Receiver<T>) -> Future<()>
     where
         T: Message + Serialize + 'static,
     {
